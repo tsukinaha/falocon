@@ -1,6 +1,6 @@
 ## Falocon
 
-A OpenAPIv3 Rust HTTP Client generator.    
+An OpenAPIv3 Rust HTTP Client generator.    
 This generator **wont** give you a client, but a trait that you can implement to create your own client.
 
 ### Target Code Example
