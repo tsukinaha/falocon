@@ -26,36 +26,57 @@ This generator **wont** give you a client, but a trait that you can implement to
   <summary>method1.rs (example)</summary>
 
 ```rust
+use super::*;
+use crate::Request;
+use reqwest::Method;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-use reqwest::Method;
+#[doc = "Requires authentication as user"]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 
-pub trait Request: Sized + Send + 'static {
-    type Response: serde::de::DeserializeOwned + Send + 'static;
+pub struct GetUsersByUseridItemsResume {
+    #[doc = "User Id"]
+    pub user_id: String,
+    pub params: GetUsersByUseridItemsResumeParams,
+}
 
-    type Body: serde::ser::Serialize + Send + 'static;
+#[derive(Debug, Clone, Serialize, Deserialize)]
 
-    type Params: serde::ser::Serialize + Send + 'static;
+pub struct GetUsersByUseridItemsResumeParams {
+    #[doc = "Artist or AlbumArtist"]
+    #[serde(rename = "ArtistType")]
+    pub artist_type: Option<String>,
+    #[doc = "Optional filter by items whose name is equally or lesser than a given input string."]
+    #[serde(rename = "NameLessThan")]
+    pub name_less_than: Option<String>,
+    ......
+}
 
-    const METHOD: Method;
+impl Request for GetUsersByUseridItemsResume {
+    type Response = QueryResultBaseItemDto;
 
-    const PATH: &'static str;
+    type Body = ();
 
-    fn body(&self) -> Option<&Self::Body> {
+    type Params = GetUsersByUseridItemsResumeParams;
 
-        None
-    }
+    const METHOD: Method = Method::GET;
+
+    const PATH: &'static str = "/Users/{UserId}/Items/Resume";
 
     fn params(&self) -> Option<&Self::Params> {
 
-        None
+        Some(&self.params)
     }
 
     fn path(&self) -> Cow<'static, str> {
 
-        Cow::Borrowed(Self::PATH)
+        let path = Self::PATH.replace("{UserId}", &self.user_id.to_string());
+
+        Cow::Owned(path)
     }
 }
+
 ```
 </details>
 
