@@ -199,6 +199,13 @@ where
 ```
 </details>
 
+### Already Considered
+- `Box<T>` in types to avoid infinite size
+- keywords in rust (e.g. `type`, `use`, `mod`, etc.)
+
+### Known Issues
+- some name of types may be too long
+
 ### Usage
 ```bash
 Usage: falocon <JSON_PATH> [OUTPUT_DIR]
