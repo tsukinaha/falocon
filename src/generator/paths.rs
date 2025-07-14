@@ -4,7 +4,7 @@ use std::{
 };
 
 use heck::{ToPascalCase, ToSnakeCase};
-use openapiv3::{Operation, PathItem};
+use openapiv3::{Operation, PathItem, ReferenceOr, SchemaKind, Type};
 use proc_macro2::{Ident, TokenStream};
 use quote::format_ident;
 use quote::quote;
@@ -140,31 +140,58 @@ impl<'a> PathsGenerator<'a> {
 
         let path = self.name;
 
-        let response_name_type = op
-            .responses
-            .responses
-            .get(&openapiv3::StatusCode::Code(200))
-            .and_then(|ref_or| match ref_or {
-                openapiv3::ReferenceOr::Reference { reference } => Some(reference.clone()),
-                openapiv3::ReferenceOr::Item(item) => item
-                    .content
-                    .get("application/json")
-                    .or_else(|| item.content.get("application/xml"))
-                    .and_then(|mt| match &mt.schema {
-                        Some(openapiv3::ReferenceOr::Reference { reference }) => {
-                            Some(reference.clone())
-                        }
-                        _ => None,
-                    }),
-            })
-            .and_then(|reference| {
+        let response_name_type = {
 
-                reference
-                    .strip_prefix("#/components/schemas/")
-                    .map(|name| format_ident!("{}", name.to_pascal_case()))
-            })
-            .map(|pascal| quote! { type Response = #pascal; })
-            .unwrap_or_else(|| quote! { type Response = (); });
+            let resp = op
+                .responses
+                .responses
+                .get(&openapiv3::StatusCode::Code(200))
+                .and_then(|ref_or| match ref_or {
+                    ReferenceOr::Reference { reference } => reference
+                        .strip_prefix("#/components/schemas/")
+                        .map(|name| (name.to_pascal_case(), false)),
+                    ReferenceOr::Item(item) => item
+                        .content
+                        .get("application/json")
+                        .or_else(|| item.content.get("application/xml"))
+                        .and_then(|mt| mt.schema.clone())
+                        .and_then(|schema_ro| match schema_ro {
+                            ReferenceOr::Reference { reference } => reference
+                                .strip_prefix("#/components/schemas/")
+                                .map(|name| (name.to_pascal_case(), false)),
+                            ReferenceOr::Item(schema) => {
+
+                                if let SchemaKind::Type(Type::Array(arr)) = &schema.schema_kind {
+
+                                    if let Some(ReferenceOr::Reference { reference }) = &arr.items {
+
+                                        return reference
+                                            .strip_prefix("#/components/schemas/")
+                                            .map(|name| (name.to_pascal_case(), true));
+                                    }
+                                }
+
+                                None
+                            }
+                        }),
+                });
+
+            if let Some((name, is_array)) = resp {
+
+                let ident = format_ident!("{}", name);
+
+                if is_array {
+
+                    quote! { type Response = Vec<#ident>; }
+                } else {
+
+                    quote! { type Response = #ident; }
+                }
+            } else {
+
+                quote! { type Response = (); }
+            }
+        };
 
         let body_ty_ts: Option<proc_macro2::TokenStream> =
             op.request_body
@@ -181,33 +208,47 @@ impl<'a> PathsGenerator<'a> {
 
                     openapiv3::ReferenceOr::Item(schema) => {
 
-                        let schema = schema
+                        let Some(schema) = schema
                             .content
                             .get("application/json")
                             .or_else(|| schema.content.get("application/xml"))
-                            .and_then(|mt| mt.schema.clone());
-
-                        let Some(openapiv3::ReferenceOr::Item(item)) = schema else {
+                            .and_then(|mt| mt.schema.clone())
+                        else {
 
                             return None;
                         };
 
-                        if let openapiv3::SchemaKind::Type(openapiv3::Type::Array(arr)) =
-                            &item.schema_kind
+                        match schema {
+                            ReferenceOr::Item(item) => {
 
-                            && let Some(openapiv3::ReferenceOr::Reference { reference }) =
-                                &arr.items
-                            {
+                                if let openapiv3::SchemaKind::Type(openapiv3::Type::Array(arr)) =
+                                    &item.schema_kind
+                                    && let Some(openapiv3::ReferenceOr::Reference { reference }) =
+                                        &arr.items
+                                {
+
+                                    return reference.strip_prefix("#/components/schemas/").map(
+                                        |name| {
+
+                                            let ident = format_ident!("{}", name.to_pascal_case());
+
+                                            quote! { Vec<#ident> }
+                                        },
+                                    );
+                                }
+                            }
+                            ReferenceOr::Reference { reference } => {
 
                                 return reference.strip_prefix("#/components/schemas/").map(
                                     |name| {
 
                                         let ident = format_ident!("{}", name.to_pascal_case());
 
-                                        quote! { Vec<#ident> }
+                                        quote! { #ident }
                                     },
                                 );
                             }
+                        }
 
                         None
                     }

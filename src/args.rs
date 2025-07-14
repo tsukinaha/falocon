@@ -3,6 +3,7 @@ use tracing_subscriber::fmt::time::ChronoLocal;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
+
 pub struct Args {
     pub json_path: String,
 
