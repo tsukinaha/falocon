@@ -14,10 +14,12 @@ pub struct StructsGenerator<'a> {
 
 impl<'a> StructsGenerator<'a> {
     pub fn new(name: &'a str, schema: &'a openapiv3::Schema) -> Self {
+
         Self { name, schema }
     }
 
     pub fn generate(&self) -> Result<TokenStream, String> {
+
         let struct_name = self.name.to_pascal_case();
 
         let struct_ident = format_ident!("{}", struct_name);
@@ -26,6 +28,7 @@ impl<'a> StructsGenerator<'a> {
 
         match &self.schema.schema_kind {
             SchemaKind::Type(Type::Object(obj)) => {
+
                 let fields = FieldsGenerator::new(&struct_name, obj).generate()?;
 
                 Ok(quote! {
@@ -37,6 +40,7 @@ impl<'a> StructsGenerator<'a> {
                 })
             }
             SchemaKind::Type(Type::String(schema)) if !schema.enumeration.is_empty() => {
+
                 let variants = EnumsGenerator::new(schema).generate()?;
 
                 Ok(quote! {
@@ -48,6 +52,7 @@ impl<'a> StructsGenerator<'a> {
                 })
             }
             _ => {
+
                 let rust_type = TypesGenerator::new(self.schema).generate()?;
 
                 Ok(quote! {

@@ -13,15 +13,18 @@ pub struct FieldsGenerator<'a> {
 
 impl<'a> FieldsGenerator<'a> {
     pub fn new(struct_name: &'a str, obj: &'a ObjectType) -> Self {
+
         Self { struct_name, obj }
     }
 
     pub fn generate(&self) -> Result<TokenStream, String> {
+
         let mut fields = TokenStream::new();
 
         let required_fields: HashSet<String> = self.obj.required.iter().cloned().collect();
 
         for (field_name, field_schema_ref) in &self.obj.properties {
+
             let snake_case_name = field_name.to_snake_case();
 
             let field_ident = create_rust_safe_ident(&snake_case_name);
@@ -29,21 +32,27 @@ impl<'a> FieldsGenerator<'a> {
             // Generate field documentation and type
             let (field_type, field_doc) = match field_schema_ref {
                 ReferenceOr::Reference { reference } => {
+
                     if let Some(type_name) = reference.strip_prefix("#/components/schemas/") {
+
                         let type_ident = format_ident!("{}", type_name.to_pascal_case());
 
                         let ty = if type_name == self.struct_name {
+
                             quote! { Box<#type_ident> }
                         } else {
+
                             quote! { #type_ident }
                         };
 
                         (ty, quote! {})
                     } else {
+
                         (quote! { serde_json::Value }, quote! {})
                     }
                 }
                 ReferenceOr::Item(schema) => {
+
                     let rust_type = TypesGenerator::new(schema).generate()?;
 
                     let doc_comment =
@@ -54,14 +63,18 @@ impl<'a> FieldsGenerator<'a> {
             };
 
             let field_type = if required_fields.contains(field_name) {
+
                 field_type
             } else {
+
                 quote! { Option<#field_type> }
             };
 
             let serde_attr = if field_name != &field_name.to_snake_case() {
+
                 quote! { #[serde(rename = #field_name)] }
             } else {
+
                 quote! {}
             };
 
@@ -77,6 +90,7 @@ impl<'a> FieldsGenerator<'a> {
 }
 
 pub fn is_rust_keyword(name: &str) -> bool {
+
     matches!(
         name,
         "as" | "break"
@@ -133,7 +147,9 @@ pub fn is_rust_keyword(name: &str) -> bool {
 }
 
 pub fn create_rust_safe_ident(name: &str) -> Ident {
+
     if is_rust_keyword(name) {
+
         // Special handling for keywords that cannot be raw identifiers
         match name {
             "self" => format_ident!("self_"),
@@ -141,6 +157,7 @@ pub fn create_rust_safe_ident(name: &str) -> Ident {
             _ => format_ident!("r#{}", name),
         }
     } else {
+
         format_ident!("{}", name)
     }
 }

@@ -60,42 +60,49 @@ impl<'a> PathsGenerator<'a> {
         if let Some(get) = &self.path_item.get {
 
             let (op_name, token) = self.gent(get, Method::Get)?;
+
             output.insert(op_name, token);
         }
 
         if let Some(post) = &self.path_item.post {
 
             let (op_name, token) = self.gent(post, Method::Post)?;
+
             output.insert(op_name, token);
         }
 
         if let Some(put) = &self.path_item.put {
 
             let (op_name, token) = self.gent(put, Method::Put)?;
+
             output.insert(op_name, token);
         }
 
         if let Some(delete) = &self.path_item.delete {
 
             let (op_name, token) = self.gent(delete, Method::Delete)?;
+
             output.insert(op_name, token);
         }
 
         if let Some(patch) = &self.path_item.patch {
 
             let (op_name, token) = self.gent(patch, Method::Patch)?;
+
             output.insert(op_name, token);
         }
 
         if let Some(head) = &self.path_item.head {
 
             let (op_name, token) = self.gent(head, Method::Head)?;
+
             output.insert(op_name, token);
         }
 
         if let Some(options) = &self.path_item.options {
 
             let (op_name, token) = self.gent(options, Method::Options)?;
+
             output.insert(op_name, token);
         }
 
@@ -135,29 +142,78 @@ impl<'a> PathsGenerator<'a> {
 
         let response_name_type = op
             .responses
-            .default
-            .as_ref()
-            .and_then(|r| match r {
-                openapiv3::ReferenceOr::Reference { reference } => reference
+            .responses
+            .get(&openapiv3::StatusCode::Code(200))
+            .and_then(|ref_or| match ref_or {
+                openapiv3::ReferenceOr::Reference { reference } => Some(reference.clone()),
+                openapiv3::ReferenceOr::Item(item) => item
+                    .content
+                    .get("application/json")
+                    .or_else(|| item.content.get("application/xml"))
+                    .and_then(|mt| match &mt.schema {
+                        Some(openapiv3::ReferenceOr::Reference { reference }) => {
+                            Some(reference.clone())
+                        }
+                        _ => None,
+                    }),
+            })
+            .and_then(|reference| {
+
+                reference
                     .strip_prefix("#/components/schemas/")
-                    .map(|name| name.to_pascal_case()),
-                _ => None,
+                    .map(|name| format_ident!("{}", name.to_pascal_case()))
             })
             .map(|pascal| quote! { type Response = #pascal; })
             .unwrap_or_else(|| quote! { type Response = (); });
 
-        let body_name = op
-            .request_body
-            .as_ref()
-            .and_then(|rb| match rb {
-                openapiv3::ReferenceOr::Reference { reference } => reference
-                    .strip_prefix("#/components/schemas/")
-                    .map(|name| name.to_pascal_case()),
-                _ => None,
-            })
-            .map(|pascal| format_ident!("{}", pascal));
+        let body_ty_ts: Option<proc_macro2::TokenStream> =
+            op.request_body
+                .as_ref()
+                .and_then(|schema_ro| match schema_ro {
+                    openapiv3::ReferenceOr::Reference { reference } => {
+                        reference.strip_prefix("#/components/schemas/").map(|name| {
 
-        let (body, body_fn, body_type) = body_and_fn(body_name);
+                            let ident = format_ident!("{}", name.to_pascal_case());
+
+                            quote! { #ident }
+                        })
+                    }
+
+                    openapiv3::ReferenceOr::Item(schema) => {
+
+                        let schema = schema
+                            .content
+                            .get("application/json")
+                            .or_else(|| schema.content.get("application/xml"))
+                            .and_then(|mt| mt.schema.clone());
+
+                        let Some(openapiv3::ReferenceOr::Item(item)) = schema else {
+
+                            return None;
+                        };
+
+                        if let openapiv3::SchemaKind::Type(openapiv3::Type::Array(arr)) =
+                            &item.schema_kind
+
+                            && let Some(openapiv3::ReferenceOr::Reference { reference }) =
+                                &arr.items
+                            {
+
+                                return reference.strip_prefix("#/components/schemas/").map(
+                                    |name| {
+
+                                        let ident = format_ident!("{}", name.to_pascal_case());
+
+                                        quote! { Vec<#ident> }
+                                    },
+                                );
+                            }
+
+                        None
+                    }
+                });
+
+        let (body, body_fn, body_type) = body_and_fn_ts(body_ty_ts);
 
         // TODO: Headers and Cookies
         Ok((
@@ -167,6 +223,7 @@ impl<'a> PathsGenerator<'a> {
                 use reqwest::Method;
                 use serde::{Deserialize, Serialize};
                 use std::borrow::Cow;
+                use super::*;
 
                 #doc_comment
                 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,4 +351,37 @@ pub fn body_and_fn(struct_name: Option<Ident>) -> (BodyInStructField, BodyFn, Bo
             type Body = #struct_name;
         },
     )
+}
+
+fn body_and_fn_ts(ty: Option<proc_macro2::TokenStream>) -> (TokenStream, TokenStream, TokenStream) {
+
+    let field = if let Some(ref ts) = ty {
+
+        quote! { pub body: #ts, }
+    } else {
+
+        quote! {}
+    };
+
+    let fn_body = if ty.is_some() {
+
+        quote! {
+            fn body(&self) -> Option<&Self::Body> {
+                Some(&self.body)
+            }
+        }
+    } else {
+
+        quote! {}
+    };
+
+    let ty_decl = if let Some(ts) = ty {
+
+        quote! { type Body = #ts; }
+    } else {
+
+        quote! { type Body = (); }
+    };
+
+    (field, fn_body, ty_decl)
 }

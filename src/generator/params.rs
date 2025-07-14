@@ -44,6 +44,7 @@ impl<'a> ParamsGenerator<'a> {
             };
 
             if let openapiv3::Parameter::Query { parameter_data, .. } = &param {
+
                 let field_name = &parameter_data.name;
 
                 let serde_name = field_name;
@@ -124,7 +125,7 @@ impl<'a> ParamsGenerator<'a> {
                     pub #field_name: #field_type,
                 });
 
-                let replace_ident = format!("{{{}}}", field_ident);
+                let replace_ident = format!("{{{field_ident}}}");
 
                 replace_fields.extend(quote! {
                     .replace(

@@ -27,11 +27,11 @@ pub fn run() {
 
     let output_path = args.output_path();
 
-    CrateWriter::new(&output_path, structs, methods)
+    CrateWriter::new(output_path, structs, methods)
         .write()
         .expect("Failed to write crate");
 
-    Formatter::new(&output_path).format();
+    Formatter::new(output_path).format();
 
     tracing::warn!(
         "Code generation completed successfully. You should write your Client manually, refer to the src/client.rs"

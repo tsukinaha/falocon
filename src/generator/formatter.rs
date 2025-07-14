@@ -38,13 +38,13 @@ impl<'a> Formatter<'a> {
             .expect("Failed to run clippy");
 
         if output.status.success() {
+
             tracing::info!("Clippy fixes completed successfully");
         } else {
+
             let stderr = String::from_utf8_lossy(&output.stderr);
-            panic!(
-                "Clippy encountered issues:\n{}",
-                stderr
-            );
+
+            panic!("Clippy encountered issues:\n{stderr}");
         }
     }
 }

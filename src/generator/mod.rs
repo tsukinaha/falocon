@@ -1,20 +1,20 @@
 mod docs;
 mod enums;
 mod fields;
+mod formatter;
 mod openapi;
 mod params;
 mod paths;
 mod structs;
 mod types;
 mod writer;
-mod formatter;
 
 pub use docs::*;
+pub use fields::*;
+pub use formatter::*;
 pub use openapi::*;
 pub use params::*;
 pub use paths::*;
 pub use structs::*;
 pub use types::*;
 pub use writer::*;
-pub use formatter::*;
-pub use fields::*;

@@ -9,18 +9,22 @@ pub struct TypesGenerator<'a> {
 
 impl<'a> TypesGenerator<'a> {
     pub fn new(schema: &'a openapiv3::Schema) -> Self {
+
         Self { schema }
     }
 
     pub fn generate(&self) -> Result<TokenStream, String> {
+
         match &self.schema.schema_kind {
             SchemaKind::Type(Type::String(_)) => Ok(quote! { String }),
             SchemaKind::Type(Type::Integer(int_schema)) => {
                 if let openapiv3::VariantOrUnknownOrEmpty::Item(openapiv3::IntegerFormat::Int64) =
                     int_schema.format
                 {
+
                     Ok(quote! { i64 })
                 } else {
+
                     Ok(quote! { i32 })
                 }
             }
@@ -29,23 +33,30 @@ impl<'a> TypesGenerator<'a> {
                 if let openapiv3::VariantOrUnknownOrEmpty::Item(openapiv3::NumberFormat::Double) =
                     num_schema.format
                 {
+
                     Ok(quote! { f64 })
                 } else {
+
                     Ok(quote! { f32 })
                 }
             }
 
             SchemaKind::Type(Type::Boolean(_)) => Ok(quote! { bool }),
             SchemaKind::Type(Type::Array(array_schema)) => {
+
                 if let Some(items) = &array_schema.items {
+
                     let item_type = match items {
                         ReferenceOr::Reference { reference } => {
+
                             if let Some(type_name) = reference.strip_prefix("#/components/schemas/")
                             {
+
                                 let type_ident = format_ident!("{}", type_name.to_pascal_case());
 
                                 quote! { #type_ident }
                             } else {
+
                                 quote! { serde_json::Value }
                             }
                         }
@@ -54,6 +65,7 @@ impl<'a> TypesGenerator<'a> {
 
                     Ok(quote! { Vec<#item_type> })
                 } else {
+
                     Ok(quote! { Vec<serde_json::Value> })
                 }
             }

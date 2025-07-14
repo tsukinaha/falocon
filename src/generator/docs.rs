@@ -5,9 +5,11 @@ pub struct DocsGenerator;
 
 impl DocsGenerator {
     pub fn generate(description: Option<&str>) -> TokenStream {
+
         if let Some(desc) = description
             && !desc.trim().is_empty()
         {
+
             let clean_desc = desc
                 .lines()
                 .map(|line| line.trim())
