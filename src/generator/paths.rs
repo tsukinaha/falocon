@@ -161,14 +161,13 @@ impl<'a> PathsGenerator<'a> {
                                 .map(|name| (name.to_pascal_case(), false)),
                             ReferenceOr::Item(schema) => {
 
-                                if let SchemaKind::Type(Type::Array(arr)) = &schema.schema_kind {
+                                if let SchemaKind::Type(Type::Array(arr)) = &schema.schema_kind
+                                    && let Some(ReferenceOr::Reference { reference }) = &arr.items
+                                {
 
-                                    if let Some(ReferenceOr::Reference { reference }) = &arr.items {
-
-                                        return reference
-                                            .strip_prefix("#/components/schemas/")
-                                            .map(|name| (name.to_pascal_case(), true));
-                                    }
+                                    return reference
+                                        .strip_prefix("#/components/schemas/")
+                                        .map(|name| (name.to_pascal_case(), true));
                                 }
 
                                 None
@@ -208,15 +207,11 @@ impl<'a> PathsGenerator<'a> {
 
                     openapiv3::ReferenceOr::Item(schema) => {
 
-                        let Some(schema) = schema
+                        let schema = schema
                             .content
                             .get("application/json")
                             .or_else(|| schema.content.get("application/xml"))
-                            .and_then(|mt| mt.schema.clone())
-                        else {
-
-                            return None;
-                        };
+                            .and_then(|mt| mt.schema.clone())?;
 
                         match schema {
                             ReferenceOr::Item(item) => {

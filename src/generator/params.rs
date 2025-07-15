@@ -62,12 +62,12 @@ impl<'a> ParamsGenerator<'a> {
 
                         let rust_type = super::TypesGenerator::new(schema).generate()?;
 
-                        if parameter_data.required {
-
-                            quote! { #rust_type }
-                        } else {
+                        if schema.schema_data.nullable {
 
                             quote! { Option<#rust_type> }
+                        } else {
+
+                            quote! { #rust_type }
                         }
                     }
                     Content(_) => {
@@ -103,12 +103,12 @@ impl<'a> ParamsGenerator<'a> {
 
                         let rust_type = super::TypesGenerator::new(schema).generate()?;
 
-                        if parameter_data.required {
-
-                            quote! { #rust_type }
-                        } else {
+                        if schema.schema_data.nullable {
 
                             quote! { Option<#rust_type> }
+                        } else {
+
+                            quote! { #rust_type }
                         }
                     }
                     Content(_) => {
